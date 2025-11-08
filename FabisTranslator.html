@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Generationen-Übersetzer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg,#f0f4ff,#fef6ff);
+      color:#222;
+      padding:36px;
+      text-align:center;
+    }
+    h1 {
+      margin:0 0 8px;
+      font-size:2rem;
+      background:linear-gradient(90deg,#6a5acd,#ff66b2);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+    .controls { margin:18px 0; }
+    input[type="text"]{
+      width:60%; max-width:480px; padding:10px 12px;
+      border-radius:10px; border:2px solid #ddd;
+      font-size:1rem; outline:none;
+    }
+    button {
+      margin-left:10px; padding:10px 16px; border-radius:9px;
+      border:none; background:#6a5acd; color:white; cursor:pointer;
+      font-size:1rem;
+    }
+    button:hover{ filter:brightness(.94) }
+    .results {
+      margin-top:28px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:18px;
+    }
+    .card {
+      background:white; padding:14px; border-radius:14px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.07); text-align:left;
+      min-height:86px;
+    }
+    .card h2{ margin:0 0 6px; font-size:1rem; }
+    .card p{ margin:0; font-size:0.98rem; word-break:break-word; }
+
+    /* Farben pro Generation/Sprache */
+    .boomer{ border-top:5px solid #ffb347; }
+    .millennial{ border-top:5px solid #00bcd4; }
+    .genz{ border-top:5px solid #ff66b2; }
+    .genalpha{ border-top:5px solid #9c27b0; }
+    .genbeta{ border-top:5px solid #4caf50; }
+    .binary{ border-top:5px solid #90ee90; } /* hellgrün */
+    .gurly{ border-top:5px solid #ff00ff; }  /* magenta */
+
+    .hint { color:#666; margin-top:8px; font-size:0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>🗣️ Generationen-Übersetzer</h1>
+  <p class="hint">Jetzt mit Binär- & Gurly-Sprache 💚💅 — Schimpfwörter werden geblockt.</p>
+
+  <div class="controls">
+    <input id="inputText" type="text" placeholder="z. B. Wie geht’s? Oder: Ich hab Hunger." />
+    <button id="goBtn">Übersetzen</button>
+  </div>
+
+  <div id="results" class="results">
+    <div style="grid-column:1/-1;color:#666;padding:14px;background:rgba(255,255,255,0.6);border-radius:10px;">
+      Hier erscheint die Übersetzung.
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // Verschleierung: alles in einer Funktion versteckt
+    var run = function(){
+      let warningCount = 0;
+      const badWords = ["scheiße","arsch","miststück","hurensohn","fuck"];
+
+      function escapeHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+      function textToBinary(str){return str.split('').map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join(' ');}
+
+      const patterns = [
+        { re: /\b(wie gehts|wie geht's|wie geht|wie geht es dir)\b/i, type: 'greeting' },
+        { re: /\b(hallo|hi|hey)\b/i, type: 'hello' },
+        { re: /\b(danke|vielen dank|merci)\b/i, type: 'thanks' },
+        { re: /\b(ich habe hunger|ich hab hunger|habt hunger)\b/i, type: 'hunger' }
+      ];
+
+      const templates = {
+        greeting: {boomer:"Na, alles Roger?",millennial:"Hey, alles gut bei dir?",genz:"Alles chill?",genalpha:"Bruh, u good?",genbeta:"yo — status: operational ✔️",binary:"01001000 01101001 00100000 01110100 01101000 01100101 01110010 01100101 💚",gurly:"Hiiiii Babe!! 💖✨ Wie geeeht's omg 😍💕"},
+        hello: {boomer:"Hallo miteinander.",millennial:"Hey! 👋",genz:"yo!!",genalpha:"heyy :D",genbeta:"hello.exe initialized",binary:"01001000 01100101 01101100 01101100 01101111 💚",gurly:"Hii cutie 💋💅"},
+        thanks: {boomer:"Vielen Dank!",millennial:"Danke dir 😊",genz:"thx 🙏",genalpha:"tysm!!",genbeta:"appreciation acknowledged 🤖",binary:"01110100 01101000 01100001 01101110 01101011 01110011 💚",gurly:"Awww thank uuuu 💕💅✨"},
+        hunger: {boomer:"Ich habe Hunger.",millennial:"Ich hab richtig Hunger — lass essen gehen?",genz:"Hungryyyy, where food at?",genalpha:"im snack mood rn 😋",genbeta:"calorie acquisition desired",binary:"01001001 01001101 00100000 01001000 01010101 01001110 01000111 01010010 01011001 💚",gurly:"Omg I need FOOD rn 🍓🍟💅"}
+      };
+
+      function fallbackTemplates(orig){
+        return {boomer:orig+" — (so würd' man das wohl sagen).",millennial:"Hey, "+orig,genz:orig+" ? 🤔",genalpha:"oMG "+orig+" 😭",genbeta:orig+" // ++core",binary:textToBinary(orig)+" 💚",gurly:"omgg "+orig+" 💅💖✨"};
+      }
+
+      function makeTranslations(input){
+        const trimmed = input.trim();
+        if(!trimmed) return null;
+        for(const p of patterns){ if(p.re.test(trimmed)) return templates[p.type]; }
+        return fallbackTemplates(escapeHtml(trimmed));
+      }
+
+      function containsBadWord(text){ const lower=text.toLowerCase(); return badWords.some(w=>lower.includes(w)); }
+
+      function render(r){
+        const esc=v=>escapeHtml(v);
+        document.getElementById('results').innerHTML=`
+          <div class="card boomer"><h2>👴 Boomer</h2><p>${esc(r.boomer)}</p></div>
+          <div class="card millennial"><h2>🧑‍💻 Millennial</h2><p>${esc(r.millennial)}</p></div>
+          <div class="card genz"><h2>🧢 Gen Z</h2><p>${esc(r.genz)}</p></div>
+          <div class="card genalpha"><h2>👶 Gen Alpha</h2><p>${esc(r.genalpha)}</p></div>
+          <div class="card genbeta"><h2>🤖 Gen Beta</h2><p>${esc(r.genbeta)}</p></div>
+          <div class="card binary"><h2>💾 Binär</h2><p>${esc(r.binary)}</p></div>
+          <div class="card gurly"><h2>💅 Gurly</h2><p>${esc(r.gurly)}</p></div>
+        `;
+      }
+
+      function translate(){
+        const inputField=document.getElementById("inputText");
+        const input=inputField.value.trim();
+        if(!input){ document.getElementById("results").innerHTML='<div style="grid-column:1/-1;color:#b00;padding:14px;background:rgba(255,255,255,0.6);border-radius:10px;">Bitte gib zuerst einen Satz ein.</div>'; return; }
+        if(containsBadWord(input)){
+          warningCount++;
+          if(warningCount>=3){ document.getElementById("results").innerHTML='<div style="grid-column:1/-1;color:#b00;padding:20px;background:#fee;border-radius:10px;font-weight:bold;">🚫 Zu viele unfreundliche Wörter! Eingabe gesperrt.</div>'; inputField.disabled=true; document.getElementById("goBtn").disabled=true; return; }
+          else{ document.getElementById("results").innerHTML=`<div style="grid-column:1/-1;color:#b00;padding:14px;background:#fee;border-radius:10px;">⚠️ Bitte keine Schimpfwörter (${warningCount}/3)</div>`; return; }
+        }
+        render(makeTranslations(input));
+      }
+
+      document.getElementById("goBtn").addEventListener("click",translate);
+      document.getElementById("inputText").addEventListener("keydown",e=>{ if(e.key==="Enter") translate(); });
+
+      // Kleine Abschreckung: Rechtsklick + DevTools blockieren
+      document.addEventListener("contextmenu",e=>e.preventDefault());
+      document.addEventListener("keydown",e=>{
+        if(e.key==="F12") { e.preventDefault(); e.stopPropagation(); }
+        if(e.ctrlKey&&(e.key==="u"||e.key==="U")) e.preventDefault();
+        if(e.ctrlKey && e.shiftKey && ["I","i","C","c","J","j"].includes(e.key)) e.preventDefault();
+      },true);
+    };
+    run();
+  })();
+  </script>
+</body>
+</html>
